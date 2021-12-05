@@ -23,23 +23,54 @@ def send_static_file(file):
 @app.route("/")
 def index():
 
-    rooms = db.rooms.find()
-    data = []
-    for room in rooms:
-        sensor_list = db.room_sensor.find({'room_id': room['_id']}, {'sensor_id': 1})
-        
-        data.append(
-            {
-                "_id": room['_id'],
-                "name": room['name'],
-                'sensors': [sensor_id for sensor_id in sensor_list]
+    pipeline2 = [
+        # {
+        #     "$match": {
+        #         "_id": 1
+        #     }
+        # },
+        {
+            "$lookup": {
+                'from': "room_sensor",
+                'localField': "_id",
+                'foreignField': "room_id",
+                'as': "room_sensor_list"
             }
-        )
-        
-    return jsonify({
-        'status': True,
-        'data': data,
-    }), 200
+        },
+        {
+        "$unwind": {
+            "path": "$room_sensor_list",
+            "preserveNullAndEmptyArrays": True
+            }
+        },
+        {
+            "$lookup": {
+                'from': "sensors",
+                'localField': "room_sensor_list.sensor_id",
+                'foreignField': "sensors._id",
+                'as': "sensor_info"
+            }
+        },
+        {
+            "$group": {
+                "_id": "$_id",
+                "name": {
+                    "$first": "$name"
+                },
+                "sensor": {
+                    "$push": "$sensor_info"
+
+                }
+            }
+        }
+    ]
+    pprint(list(db.rooms.aggregate(pipeline2)))
+    
+    # db.rooms.find({'_id':1}, {'$set':{'name': "ZISAD"}})
+    # db.rooms.delete_many({}) # delete room data
+    # db.room_sensor.delete_many({}) #delete room information from room sensor
+    # db.sensor_data.delete_many({}) #delete all previous data of this room
+    
 
     # db.sensors.delete_many({})
 
@@ -149,6 +180,25 @@ def room_list():
     
     if(validateAPIRequest(request)):
         rooms = db.rooms.find()
+        
+        return jsonify({
+            'status': True,
+            'data': [data for data in rooms],
+        }), 200
+
+    else:
+        return jsonify({
+            'status': False,
+            'message' : 'Bad Request'
+        }), 403
+
+    
+
+@app.route('/api/room_sensor_list', methods=["GET"])
+def room_sensor_list():
+    
+    if(validateAPIRequest(request)):
+        rooms = db.rooms.find()
         data = []
         for room in rooms:
             data.append(
@@ -172,6 +222,7 @@ def room_list():
         }), 403
 
     
+
 
 
 @app.route('/api/add_room', methods=["POST"])
@@ -234,7 +285,7 @@ def update_room():
                 'message': 'Room name is required'
             }), 422
         try:
-            id = request.form['id']
+            id = int(request.form['id'])
         except :
             return jsonify({
                 'status': False,
@@ -248,17 +299,7 @@ def update_room():
                 'message': 'Sensor array is required'
             }), 422
 
-
-        db.rooms.update_one(
-            {
-            '_id': id
-            },
-            {
-                '$set': {
-                    'name': name
-                }
-            }, upsert=False)
-
+        db.rooms.update_one({'_id': id}, {'$set':{'name': name}})
 
         db.room_sensor.delete_many({'room_id': id}) #delete room information from room sensor
         db.sensor_data.delete_many({'room_id': id}) #delete all previous data of this room
@@ -271,7 +312,7 @@ def update_room():
         
         return jsonify({
             'status': True,
-            'message': 'Room updated successfully'
+            'message': 'Room updated successfully',
         }), 200
 
     else:
