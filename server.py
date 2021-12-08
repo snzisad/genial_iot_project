@@ -1,7 +1,7 @@
 from flask import Flask, render_template, jsonify, request, send_from_directory, make_response
 import pandas as pd
 import json
-from pymongo import MongoClient
+from pymongo import MongoClient, results
 from dotenv import dotenv_values
 from uuid import uuid4
 from pprint import pprint
@@ -13,6 +13,7 @@ x_access_token = dotenv_values(".env")["HEADER_KEY"]
 
 client = MongoClient(port=27017)
 db = client["IOT_PROJECT"]
+db_test = client["TEST_PROJECT"]
 
 
 @app.route('/static/<file>')
@@ -22,49 +23,6 @@ def send_static_file(file):
 
 @app.route("/")
 def index():
-
-    pipeline2 = [
-        # {
-        #     "$match": {
-        #         "_id": 1
-        #     }
-        # },
-        {
-            "$lookup": {
-                'from': "room_sensor",
-                'localField': "_id",
-                'foreignField': "room_id",
-                'as': "room_sensor_list"
-            }
-        },
-        {
-        "$unwind": {
-            "path": "$room_sensor_list",
-            "preserveNullAndEmptyArrays": True
-            }
-        },
-        {
-            "$lookup": {
-                'from': "sensors",
-                'localField': "room_sensor_list.sensor_id",
-                'foreignField': "sensors._id",
-                'as': "sensor_info"
-            }
-        },
-        {
-            "$group": {
-                "_id": "$_id",
-                "name": {
-                    "$first": "$name"
-                },
-                "sensor": {
-                    "$push": "$sensor_info"
-
-                }
-            }
-        }
-    ]
-    pprint(list(db.rooms.aggregate(pipeline2)))
     
     # db.rooms.find({'_id':1}, {'$set':{'name': "ZISAD"}})
     # db.rooms.delete_many({}) # delete room data
@@ -198,31 +156,73 @@ def room_list():
 def room_sensor_list():
     
     if(validateAPIRequest(request)):
-        rooms = db.rooms.find()
-        data = []
-        for room in rooms:
-            data.append(
-                {
-                    "_id": room['_id'],
-                    "name": room['name'],
-                    # 'sensors': 
-                }
-            )
 
+        pipeline = [
+            {
+                "$lookup": {
+                    'from': "room_sensor",
+                    'localField': '_id',
+                    'foreignField': 'room_id',
+                    'as': "room_sensor_list",
+                    'pipeline':[
+                        {
+                            "$lookup": {
+                                'from': "sensors",
+                                'as': "sensor_info",
+                                "let": { "room_sensor_id": "$sensor_id" },
+                                "pipeline": [
+                                    { 
+                                        "$match": { 
+                                            "$expr": { 
+                                                "$eq": ["$_id", "$$room_sensor_id"] 
+                                            }
+                                        }
+                                    }
+                                ],
+                            }
+                        }
+                    ],
+
+                }
+            },
+            {
+            "$unwind": {
+                "path": "$room_sensor_list",
+                "preserveNullAndEmptyArrays": True
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$_id",
+                    "name": {
+                        "$first": "$name"
+                    },
+                    "sensor": {
+                        "$push": "$room_sensor_list.sensor_info"
+
+                    }
+                }
+            },
+            {
+                "$sort": {
+                    "_id": -1
+                }
+            },
+        ]
+
+        data = db.rooms.explain("executionStats").aggregate(pipeline)
         
         return jsonify({
             'status': True,
-            'data': data,
+            'data': list(data),
         }), 200
+
 
     else:
         return jsonify({
             'status': False,
             'message' : 'Bad Request'
         }), 403
-
-    
-
 
 
 @app.route('/api/add_room', methods=["POST"])
@@ -257,7 +257,7 @@ def add_room():
         
         room_sensor_data = []
         for sensor_id in sensor_ids:
-            room_sensor_data.append({'_id': uuid4(), 'room_id': id, 'sensor_id': sensor_id})
+            room_sensor_data.append({'_id': uuid4(), 'room_id': id, 'sensor_id': int(sensor_id)})
         
         db.room_sensor.insert_many(room_sensor_data)
         
@@ -306,7 +306,7 @@ def update_room():
 
         room_sensor_data = []
         for sensor_id in sensor_ids:
-            room_sensor_data.append({'_id': uuid4(), 'room_id': id, 'sensor_id': sensor_id})
+            room_sensor_data.append({'_id': uuid4(), 'room_id': id, 'sensor_id': int(sensor_id)})
         
         db.room_sensor.insert_many(room_sensor_data)
         
