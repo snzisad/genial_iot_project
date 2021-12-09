@@ -2,10 +2,10 @@ import jwt
 from functools import wraps
 from flask import Flask, jsonify, request
 from pymongo import MongoClient
-from dotenv import dotenv_values
+import os
 
-x_access_token = dotenv_values(".env")["HEADER_KEY"]
-secret_key = dotenv_values(".env")["SECRET_KEY"]
+x_access_token = os.getenv("HEADER_KEY")
+secret_key = os.getenv("SECRET_KEY")
 
 
 app = Flask(__name__)
@@ -23,7 +23,7 @@ def token_required(f):
         # return 401 if token is not passed
         if not token:
             return jsonify({'message' : 'Token is missing !!'}), 401
-  
+
         try:
             # decoding the payload to fetch the stored details
             data = jwt.decode(token, secret_key)
@@ -34,13 +34,13 @@ def token_required(f):
 
         except Exception as e:
             print(e)
-            
+
             return jsonify({
                 'message' : 'Token is invalid !!'
             }), 401
-  
+
     return decorated
-  
+
 
 # decorator for verifying the request
 def verify_request(f):
@@ -49,16 +49,16 @@ def verify_request(f):
         token = None
         if 'x-access-token' in request.headers:
             token = request.headers['x-access-token']
-            
+
         if not token:
             return jsonify({'message' : 'Bad Request'}), 401
-  
+
         if token == x_access_token:
             return  f(*args, **kwargs)
         else:
             return jsonify({
                 'message' : 'Bad Request'
             }), 401
-  
+
     return decorated
-  
+

@@ -1,18 +1,16 @@
-import uuid
 import jwt
 from flask import Flask, jsonify, request, send_from_directory
 from pymongo import MongoClient
-from dotenv import dotenv_values
 from uuid import uuid4
 from pprint import pprint
 from datetime import datetime, timedelta
 from  werkzeug.security import generate_password_hash, check_password_hash
 from Decorator import verify_request, token_required
+import os
 
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = dotenv_values(".env")["SECRET_KEY"]
-x_access_token = dotenv_values(".env")["HEADER_KEY"]
+app.config['SECRET_KEY'] = os.getenv("SECRET_KEY")
 
 client = MongoClient(port=27017)
 db = client["IOT_PROJECT"]
@@ -67,14 +65,14 @@ def login():
 
     user = db.user.find_one({"username": username})
 
-    
+
     if user is not None and check_password_hash(user["password"], password):
         # generates the JWT Token
         token = jwt.encode({
             'public_id': str(user["_id"]),
             'exp' : datetime.utcnow() + timedelta(minutes = 30)
         }, app.config['SECRET_KEY'])
-  
+
         return jsonify({
             'status': True,
             'token' : token.decode('UTF-8')
@@ -86,25 +84,25 @@ def login():
         'message': 'Invalid username or password'
     }), 403
 
-    
+
 @app.route('/api/sensor_list', methods=["GET"])
 @token_required
 def sensor_list(*_):
     data = db.sensors.find()
-    
+
     return jsonify({
         'status': True,
         'data': list(data),
     }), 200
 
-    
+
 
 
 @app.route('/api/add_sensor', methods=["POST"])
 @token_required
 def add_sensor(*_):
     name = request.form.get('name')
-    
+
     if name is None:
         return jsonify({
             'status': False,
@@ -118,30 +116,30 @@ def add_sensor(*_):
     else:
         id = last_item['_id']+1
 
-    
+
     db.sensors.insert_one(
         {'_id': id, 'name': name},
     )
-    
+
     return jsonify({
         'status': True,
         'message': 'Sensor added successfully'
     }), 200
 
-    
+
 
 @app.route('/api/delete_sensor', methods=["DELETE"])
 @token_required
 def delete_sensor(*_):
     id = request.form.get('id')
-    
+
     if id is None :
         return jsonify({
             'status': False,
             'error_at': 'id',
             'message': 'Sensor id is required'
         }), 422
-    
+
     try:
         id = int(id)
     except Exception as e:
@@ -156,7 +154,7 @@ def delete_sensor(*_):
     db.sensors.delete_one({'_id': id}) #delete sensor data
     db.room_sensor.delete_many({'sensor_id': id}) #delete sensor information from room sensor
     db.sensor_data.delete_many({'sensor_id': id}) #delete all previous data of this sensor
-    
+
     return jsonify({
         'status': True,
         'message': 'Sensor information removed successfully'
@@ -167,13 +165,13 @@ def delete_sensor(*_):
 @token_required
 def room_list(*_):
     rooms = db.rooms.find()
-        
+
     return jsonify({
         'status': True,
         'data': [data for data in rooms],
     }), 200
 
-    
+
 
 @app.route('/api/room_sensor_list', methods=["GET"])
 @token_required
@@ -192,10 +190,10 @@ def room_sensor_list(*_):
                             'as': "sensor_info",
                             "let": { "room_sensor_id": "$sensor_id" },
                             "pipeline": [
-                                { 
-                                    "$match": { 
-                                        "$expr": { 
-                                            "$eq": ["$_id", "$$room_sensor_id"] 
+                                {
+                                    "$match": {
+                                        "$expr": {
+                                            "$eq": ["$_id", "$$room_sensor_id"]
                                         }
                                     }
                                 }
@@ -232,7 +230,7 @@ def room_sensor_list(*_):
     ]
 
     data = db.rooms.aggregate(pipeline)
-    
+
     return jsonify({
         'status': True,
         'data': list(data),
@@ -243,7 +241,7 @@ def room_sensor_list(*_):
 @token_required
 def add_room(*_):
     name = request.form.get('name')
-    
+
     if name is None :
         return jsonify({
             'status': False,
@@ -265,11 +263,11 @@ def add_room(*_):
     else:
         id = last_item['_id']+1
 
-    
+
     db.rooms.insert_one(
         {'_id': id, 'name': name},
     )
-    
+
     room_sensor_data = []
     for sensor_id in sensor_ids:
         try:
@@ -282,7 +280,7 @@ def add_room(*_):
             }), 200
 
     db.room_sensor.insert_many(room_sensor_data)
-    
+
     return jsonify({
         'status': True,
         'message': 'Room added successfully'
@@ -294,13 +292,13 @@ def add_room(*_):
 def update_room(*_):
     name = request.form.get('name')
     id = request.form.get('id')
-    
+
     if name is None :
         return jsonify({
             'status': False,
             'message': 'Room name is required'
         }), 422
-    
+
     if id is None:
         return jsonify({
             'status': False,
@@ -340,21 +338,21 @@ def update_room(*_):
                 'message': 'Sensor array elements must be integer'
             }), 200
 
-    
+
     db.room_sensor.insert_many(room_sensor_data)
-    
+
     return jsonify({
         'status': True,
         'message': 'Room updated successfully',
     }), 200
 
-    
+
 
 @app.route('/api/delete_room', methods=["DELETE"])
 @token_required
 def delete_room(*_):
     id = request.form.get('id')
-    
+
     if id is None:
         return jsonify({
             'status': False,
@@ -374,12 +372,12 @@ def delete_room(*_):
     db.rooms.delete_many({'_id': id}) # delete room data
     db.room_sensor.delete_many({'room_id': id}) #delete room information from room sensor
     db.sensor_data.delete_many({'room_id': id}) #delete all previous data of this room
-    
+
     return jsonify({
         'status': True,
         'message': 'Room information removed successfully'
     }), 200
 
-    
+
 if __name__ == "__main__":
     app.run(debug=True, host="127.0.0.1", port=8000)
