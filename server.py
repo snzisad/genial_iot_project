@@ -1,5 +1,5 @@
 import jwt
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, json, jsonify, request, send_from_directory
 from pymongo import MongoClient
 from uuid import uuid4
 from pprint import pprint
@@ -14,8 +14,6 @@ app.config['SECRET_KEY'] = os.getenv("SECRET_KEY")
 
 # client = MongoClient(port=27017)
 client = MongoClient("mongodb+srv://root:root@cluster0.1offn.mongodb.net/IOT_PROJECT?retryWrites=true&w=majority")
-db = client.test
-
 db = client["IOT_PROJECT"]
 
 @app.route('/static/<file>')
@@ -38,6 +36,8 @@ def index():
     #         401,
     #         {'WWW-Authenticate' : 'Basic realm ="Login required !!"'}
     #     )
+
+    # return jsonify(list(client.list_databases()))
     return "Hi. The server is working. Great job!!"
     # return render_template('index.html', family_origin = family_origin, cart_count = len(cart))
     # pass
@@ -231,7 +231,7 @@ def room_sensor_list(*_):
         },
         {
             "$sort": {
-                "_id": -1
+                "_id": 1
             }
         },
     ]
