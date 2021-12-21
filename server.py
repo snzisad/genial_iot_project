@@ -12,10 +12,11 @@ import os
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv("SECRET_KEY")
 
-client = MongoClient(port=27017)
-db = client["IOT_PROJECT"]
-db_test = client["TEST_PROJECT"]
+# client = MongoClient(port=27017)
+client = MongoClient("mongodb+srv://root:root@cluster0.1offn.mongodb.net/IOT_PROJECT?retryWrites=true&w=majority")
+db = client.test
 
+db = client["IOT_PROJECT"]
 
 @app.route('/static/<file>')
 def send_static_file(file):
@@ -180,10 +181,16 @@ def room_sensor_list(*_):
         {
             "$lookup": {
                 'from': "room_sensor",
-                'localField': '_id',
-                'foreignField': 'room_id',
                 'as': "room_sensor_list",
+                "let": { "parent_room_id": "$_id" },
                 'pipeline':[
+                    {
+                        "$match": {
+                            "$expr": {
+                                "$eq": ["$room_id", "$$parent_room_id"]
+                            }
+                        }
+                    },
                     {
                         "$lookup": {
                             'from': "sensors",
