@@ -1,6 +1,7 @@
 import jwt
 from functools import wraps
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 from pymongo import MongoClient
 import os
 
@@ -9,6 +10,7 @@ secret_key = os.getenv("SECRET_KEY")
 
 
 app = Flask(__name__)
+CORS(app)
 client = MongoClient(port=27017)
 db = client["IOT_PROJECT"]
 

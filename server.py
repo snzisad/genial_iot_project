@@ -1,5 +1,6 @@
 import jwt
 from flask import Flask, json, jsonify, request, send_from_directory
+from flask_cors import CORS
 from pymongo import MongoClient
 from uuid import uuid4
 from pprint import pprint
@@ -10,6 +11,7 @@ import os
 
 
 app = Flask(__name__)
+CORS(app)
 app.config['SECRET_KEY'] = os.getenv("SECRET_KEY")
 
 # client = MongoClient(port=27017)
@@ -387,4 +389,4 @@ def delete_room(*_):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="127.0.0.1", port=8000)
+    app.run(debug=True, host="0.0.0.0", port=8000)
