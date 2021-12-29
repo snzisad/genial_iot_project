@@ -6,9 +6,10 @@ from uuid import uuid4
 from pprint import pprint
 from datetime import datetime, timedelta
 from  werkzeug.security import generate_password_hash, check_password_hash
-from Decorator import verify_request, token_required
+from Decorator import verify_request, token_required, api_key_required
 import os
 
+# 10.42.0.174
 
 app = Flask(__name__)
 CORS(app)
@@ -17,11 +18,6 @@ app.config['SECRET_KEY'] = os.getenv("SECRET_KEY")
 # client = MongoClient(port=27017)
 client = MongoClient("mongodb+srv://root:root@cluster0.1offn.mongodb.net/IOT_PROJECT?retryWrites=true&w=majority")
 db = client["IOT_PROJECT"]
-
-@app.route('/static/<file>')
-def send_static_file(file):
-    return send_from_directory('static', file)
-
 
 @app.route("/")
 def index():
@@ -45,18 +41,19 @@ def index():
     # pass
 
 
-@app.route('/api/login', methods=["POST"])
+@app.route('/api/register', methods=["POST"])
 @verify_request
-def login():
+def register():
     request_data = request.form
-    username = request_data.get('username')
+    email = request_data.get('email')
     password = request_data.get('password')
+    role = request_data.get('role')
 
-    if username is None:
+    if email is None:
         return jsonify({
             'status': False,
-            'error_at': 'username',
-            'message': 'Username is required'
+            'error_at': 'email',
+            'message': 'Email is required'
         }), 422
 
     if password is None:
@@ -66,7 +63,68 @@ def login():
             'message': 'Password is required'
         }), 422
 
-    user = db.user.find_one({"username": username})
+    if role is None:
+        return jsonify({
+            'status': False,
+            'error_at': 'role',
+            'message': 'Role is required'
+        }), 422
+
+    user = db.user.find_one({"email": email})
+
+    if user is None:
+        api_key = str(uuid4()).replace('-', '')
+
+        db.user.insert_one({
+            "_id": str(uuid4()),
+            "email": email,
+            "role": role,
+            "api_key": api_key,
+            "password": generate_password_hash(password)
+        })
+
+        return jsonify({
+            'status': True,
+            'api_key': api_key
+        }), 200
+
+    else:
+        return jsonify({
+            'status': False,
+            'message': 'User already exixts'
+        }), 409
+
+
+@app.route('/api/login', methods=["POST"])
+@verify_request
+def login():
+    request_data = request.form
+    email = request_data.get('email')
+    password = request_data.get('password')
+    role = request_data.get('role')
+
+    if email is None:
+        return jsonify({
+            'status': False,
+            'error_at': 'email',
+            'message': 'Email is required'
+        }), 422
+
+    if password is None:
+        return jsonify({
+            'status': False,
+            'error_at': 'password',
+            'message': 'Password is required'
+        }), 422
+
+    if role is None:
+        return jsonify({
+            'status': False,
+            'error_at': 'role',
+            'message': 'Role is required'
+        }), 422
+
+    user = db.user.find_one({"email": email, "role": role})
 
 
     if user is not None and check_password_hash(user["password"], password):
@@ -78,18 +136,19 @@ def login():
 
         return jsonify({
             'status': True,
+            'api_key': user["api_key"],
             'token' : token.decode('UTF-8')
         }), 200
 
 
     return jsonify({
         'status': False,
-        'message': 'Invalid username or password'
+        'message': 'Invalid email, password or role'
     }), 403
 
 
 @app.route('/api/sensor_list', methods=["GET"])
-@token_required
+@api_key_required
 def sensor_list(*_):
     data = db.sensors.find()
 
@@ -112,6 +171,14 @@ def add_sensor(*_):
             'error_at': 'name',
             'message': 'Sensor name is required'
         }), 422
+
+    sensor = db.sensors.find_one({"name": name})
+    if sensor is not None:
+        return jsonify({
+            'status': False,
+            'message': 'This sensor is already added'
+        }), 409
+
 
     last_item = db.sensors.find_one({}, sort = [('_id', -1)])
     if last_item == None:
@@ -165,7 +232,7 @@ def delete_sensor(*_):
 
 
 @app.route('/api/room_list', methods=["GET"])
-@token_required
+@api_key_required
 def room_list(*_):
     rooms = db.rooms.find()
 
@@ -177,7 +244,7 @@ def room_list(*_):
 
 
 @app.route('/api/room_sensor_list', methods=["GET"])
-@token_required
+@api_key_required
 def room_sensor_list(*_):
     pipeline = [
         {
@@ -266,6 +333,13 @@ def add_room(*_):
             'message': 'Sensor array is required'
         }), 422
 
+    room = db.rooms.find_one({"name": name})
+    if room is not None:
+        return jsonify({
+            'status': False,
+            'message': 'This room is already added'
+        }), 409
+
     last_item = db.rooms.find_one({}, sort = [('_id', -1)])
     if last_item == None:
         id = 0
@@ -280,7 +354,9 @@ def add_room(*_):
     room_sensor_data = []
     for sensor_id in sensor_ids:
         try:
-            room_sensor_data.append({'_id': uuid4(), 'room_id': id, 'sensor_id': int(sensor_id)})
+            sensor_data = db.sensors.find_one({"_id": int(sensor_id)})
+            if sensor_data is not None:
+                room_sensor_data.append({'_id': uuid4(), 'room_id': id, 'sensor_id': int(sensor_id)})
         except:
             return jsonify({
                 'status': False,
@@ -339,7 +415,9 @@ def update_room(*_):
     room_sensor_data = []
     for sensor_id in sensor_ids:
         try:
-            room_sensor_data.append({'_id': uuid4(), 'room_id': id, 'sensor_id': int(sensor_id)})
+            sensor_data = db.sensors.find_one({"_id": int(sensor_id)})
+            if sensor_data is not None:
+                room_sensor_data.append({'_id': uuid4(), 'room_id': id, 'sensor_id': int(sensor_id)})
         except:
             return jsonify({
                 'status': False,
