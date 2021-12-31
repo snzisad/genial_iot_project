@@ -1,3 +1,5 @@
+from calendar import prmonth
+from itertools import count
 import jwt
 from flask import Flask, json, jsonify, request, send_from_directory
 from flask_cors import CORS
@@ -7,6 +9,7 @@ from pprint import pprint
 from datetime import datetime, timedelta
 from  werkzeug.security import generate_password_hash, check_password_hash
 from Decorator import verify_request, token_required, api_key_required
+from udp import retrieveData
 import os
 
 # 10.42.0.174
@@ -242,7 +245,6 @@ def room_list(*_):
     }), 200
 
 
-
 @app.route('/api/room_sensor_list', methods=["GET"])
 @api_key_required
 def room_sensor_list(*_):
@@ -464,6 +466,227 @@ def delete_room(*_):
         'status': True,
         'message': 'Room information removed successfully'
     }), 200
+
+
+
+@app.route('/api/room_ranking', methods=["GET"])
+# @api_key_required
+def room_ranking(*_):
+    retrieveData()
+    rooms = list(db.rooms.find({}, sort = [('_id', 1)]))
+    selected_room_pos = []
+    
+    for i, room in enumerate(rooms):
+        sensors = list(db.room_sensor.find({"room_id": room["_id"]}, {'_id': 0, 'sensor_id': 1}, sort = [("_id", -1)]))
+        room_sensor_data = []
+
+        comfort_pass_num = 0
+
+        if len(sensors)>=3:
+            for sensor in sensors:
+                sensor_id = sensor["sensor_id"]
+                sensor_info = db.sensors.find_one({"_id": sensor_id})
+                sensor_data = db.sensor_data.find_one({"room_id": room["_id"], "sensor_id": sensor_id, "is_latest": True})            
+                
+                value = sensor_data["value"]
+                sensor_info.update({'value': value})
+
+                if sensor_id == 0 and value>=18 and value <= 23:
+                    comfort_pass_num = comfort_pass_num+1
+                elif sensor_id == 1 and value<300:
+                    comfort_pass_num = comfort_pass_num+1
+                elif sensor_id == 2 and value>=100 and value <= 2000:
+                    comfort_pass_num = comfort_pass_num+1
+
+                room_sensor_data.append(sensor_info)
+
+            if comfort_pass_num>=3:
+                selected_room_pos.append(i)
+
+            room.update({'sensor': room_sensor_data})
+
+    return jsonify({
+        'status': True,
+        'data': [rooms[index] for index in selected_room_pos],
+    }), 200
+
+
+
+@app.route('/api/room_sensor_data', methods=["GET"])
+# @api_key_required
+def room_sensor_data(*_):
+    retrieveData()
+    rooms = list(db.rooms.find({}, sort = [('_id', 1)]))
+    for room in rooms:
+        sensors = db.room_sensor.find({"room_id": room["_id"]}, {'_id': 0, 'sensor_id': 1})
+        room_sensor_data = []
+        for sensor in sensors:
+            sensor_info = db.sensors.find_one({"_id": sensor["sensor_id"]})
+            sensor_data = db.sensor_data.find({"room_id": room["_id"], "sensor_id": sensor["sensor_id"]})
+            values = []
+            dates = []
+            times = []
+            for data in sensor_data:
+                values.append(data["value"])
+                dates.append(data["date"])
+                times.append(data["time"])
+            
+            sensor_info.update({'values': values})
+            sensor_info.update({'dates': dates})
+            sensor_info.update({'times': times})
+
+            room_sensor_data.append(sensor_info)
+
+        room.update({'sensor': room_sensor_data})
+
+    return jsonify({
+        'status': True,
+        'data': rooms,
+    }), 200
+
+
+@app.route('/api/room_wise_data', methods=["GET"])
+# @api_key_required
+def room_wise_data(*_):
+    retrieveData()
+    if 'room_id' not in request.args:
+        return jsonify({
+            'status': False,
+            'message': "Room id is required",
+        }), 422
+
+    try:
+        room_id = int(request.args.get("room_id"))
+    except:
+        return jsonify({
+            'status': False,
+            'message': "Room id should be integer value",
+        }), 422
+
+
+    room = db.rooms.find_one({"_id": room_id})
+    sensors = db.room_sensor.find({"room_id": room["_id"]}, {'_id': 0, 'sensor_id': 1}, sort = [('sensor_id', 1)])
+    room_sensor_data = []
+    for sensor in sensors:
+        sensor_info = db.sensors.find_one({"_id": sensor["sensor_id"]})
+        sensor_data = db.sensor_data.find({"room_id": room["_id"], "sensor_id": sensor["sensor_id"]})
+        values = []
+        dates = []
+        times = []
+        for data in sensor_data:
+            values.append(data["value"])
+            dates.append(data["date"])
+            times.append(data["time"])
+        
+        sensor_info.update({'values': values})
+        sensor_info.update({'dates': dates})
+        sensor_info.update({'times': times})
+
+        room_sensor_data.append(sensor_info)
+
+    room.update({'sensor': room_sensor_data})
+
+    return jsonify({
+        'status': True,
+        'data': room,
+    }), 200
+
+
+@app.route('/api/sensor_wise_data', methods=["GET"])
+# @api_key_required
+def sensor_wise_data(*_):
+    retrieveData()
+    if 'sensor_id' not in request.args:
+        return jsonify({
+            'status': False,
+            'message': "Sensor id is required",
+        }), 422
+
+    try:
+        sensor_id = int(request.args.get("sensor_id"))
+    except:
+        return jsonify({
+            'status': False,
+            'message': "Sensor id should be integer value",
+        }), 422
+
+    rooms = list(db.rooms.find({}, sort = [('_id', 1)]))
+    for room in rooms:
+        sensors = db.room_sensor.find({"room_id": room["_id"], "sensor_id": sensor_id}, {'_id': 0, 'sensor_id': 1})
+        room_sensor_data = []
+        for sensor in sensors:
+            sensor_info = db.sensors.find_one({"_id": sensor["sensor_id"]})
+            sensor_data = db.sensor_data.find({"room_id": room["_id"], "sensor_id": sensor["sensor_id"]})
+            values = []
+            dates = []
+            times = []
+            for data in sensor_data:
+                values.append(data["value"])
+                dates.append(data["date"])
+                times.append(data["time"])
+            
+            sensor_info.update({'values': values})
+            sensor_info.update({'dates': dates})
+            sensor_info.update({'times': times})
+
+            room_sensor_data.append(sensor_info)
+
+        room.update({'sensor': room_sensor_data})
+
+    return jsonify({
+        'status': True,
+        'data': rooms,
+    }), 200
+
+
+@app.route('/api/date_wise_data', methods=["GET"])
+# @api_key_required
+def date_wise_data(*_):
+    retrieveData()
+    if 'from_date' not in request.args:
+        return jsonify({
+            'status': False,
+            'message': "From date is required",
+        }), 422
+
+    if 'to_date' not in request.args:
+        return jsonify({
+            'status': False,
+            'message': "To date is required",
+        }), 422
+
+
+    from_date = request.args.get("from_date")
+    to_date = request.args.get("to_date")
+
+    rooms = list(db.rooms.find({}, sort = [('_id', 1)]))
+    for room in rooms:
+        sensors = db.room_sensor.find({"room_id": room["_id"]}, {'_id': 0, 'sensor_id': 1})
+        room_sensor_data = []
+        for sensor in sensors:
+            sensor_info = db.sensors.find_one({"_id": sensor["sensor_id"]})
+            sensor_data = db.sensor_data.find({"room_id": room["_id"], "sensor_id": sensor["sensor_id"], "date": {'$gte': from_date, '$lte':to_date}})
+            values = []
+            dates = []
+            times = []
+            for data in sensor_data:
+                values.append(data["value"])
+                dates.append(data["date"])
+                times.append(data["time"])
+            
+            sensor_info.update({'values': values})
+            sensor_info.update({'dates': dates})
+            sensor_info.update({'times': times})
+
+            room_sensor_data.append(sensor_info)
+
+        room.update({'sensor': room_sensor_data})
+
+    return jsonify({
+        'status': True,
+        'data': rooms,
+    }), 200
+
 
 
 if __name__ == "__main__":
