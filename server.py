@@ -494,20 +494,20 @@ def room_ranking(*_):
                 comfort_pass_num = comfort_pass_num+1
             elif sensor_id == 1 and value<30:
                 comfort_pass_num = comfort_pass_num+1
-            elif sensor_id == 2 and value>=100 and value <= 30:
+            elif sensor_id == 2 and value>=100 and value <= 300:
                 comfort_pass_num = comfort_pass_num+1
 
             room_sensor_data.append(sensor_info)
 
         room_points.update({i: 0.333*comfort_pass_num})
         room.update({'sensor': room_sensor_data})
+        room.update({'points': 0.333*comfort_pass_num*100})
 
     room_points = {k: v for k, v in sorted(room_points.items(), key=lambda item: item[1],  reverse=True)}
     selected_room_pos = room_points.keys()
 
     return jsonify({
         'status': True,
-        "points": room_points,
         'data': [rooms[index] for index in selected_room_pos],
     }), 200
 
