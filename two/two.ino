@@ -3,7 +3,7 @@
 #include <SPI.h> 
 #include<math.h>
 #include "Wire.h" 
- 
+
 byte mac[] ={0x90, 0xA2, 0xDA, 0x10, 0xA7, 0xE1}; 
 IPAddress ip(10, 42, 0, 174); 
 unsigned int localPort = 5000; 
@@ -41,7 +41,7 @@ void loop() {
     
     float x[3];
 
-    if((packetBuffer[1]-'0')==1){
+    if((packetBuffer[1]-'0')==0){
       int a = analogRead(pinTempSensor);
       float R = 1023.0/a-1.0;
       R = R0*R;
@@ -50,7 +50,7 @@ void loop() {
     }else{
       x[0]=-1;
     }
-    if((packetBuffer[4]-'0')==2){
+    if((packetBuffer[4]-'0')==1){
       long sum = 0;
       for(int i=0; i<32; i++)
       {
@@ -61,7 +61,7 @@ void loop() {
     }else{
       x[1]=-1;
     }
-    if((packetBuffer[7]-'0')==3){
+    if((packetBuffer[7]-'0')==2){
       int val=analogRead(pinLightSensor);
       x[2]=val;
     }else{

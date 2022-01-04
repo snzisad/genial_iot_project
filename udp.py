@@ -34,10 +34,11 @@ def retrieveData():
         print(e)
 
 
-def saveData(output, date):
-# def saveData(output):
+# def saveData(output, date):
+def saveData(output):
 #     output = ['21.34', '55.00', '380.00']
-#     date = datetime.today().strftime("%d-%m-%Y")
+    print(output)
+    date = datetime.today().strftime("%d-%m-%Y")
     time = datetime.today().strftime("%H:%M")
 
     all_room_sensors = db.room_sensor.find({}, sort = [('room_id', 1), ('sensor_id', 1)])

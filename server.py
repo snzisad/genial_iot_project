@@ -492,9 +492,9 @@ def room_ranking(*_):
 
             if sensor_id == 0 and value>=18 and value <= 23:
                 comfort_pass_num = comfort_pass_num+1
-            elif sensor_id == 1 and value<300:
+            elif sensor_id == 1 and value<30:
                 comfort_pass_num = comfort_pass_num+1
-            elif sensor_id == 2 and value>=100 and value <= 350:
+            elif sensor_id == 2 and value>=100 and value <= 30:
                 comfort_pass_num = comfort_pass_num+1
 
             room_sensor_data.append(sensor_info)
@@ -690,4 +690,4 @@ def date_wise_data(*_):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="127.0.0.1", port=8000)
+    app.run(debug=True, host="0.0.0.0", port=8000)
