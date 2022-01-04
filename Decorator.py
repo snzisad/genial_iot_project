@@ -93,15 +93,31 @@ def verify_request(f):
         if 'x-access-token' in request.headers:
             token = request.headers['x-access-token']
 
-        if not token:
-            return jsonify({'message' : 'Bad Request'}), 401
+            if not token:
+                return jsonify({'message' : 'Bad Request'}), 401
 
-        if token == x_access_token:
-            return  f(*args, **kwargs)
-        else:
-            return jsonify({
-                'message' : 'Bad Request'
-            }), 401
+            if token == x_access_token:
+                return  f(*args, **kwargs)
+
+            else:
+                return jsonify({
+                    'message' : 'Token is invalid !!'
+                }), 401
+
+        elif 'api_key' in request.args:
+            api_key = request.args.get("api_key")
+            current_user = db.user.find_one({"api_key": api_key})
+
+            if current_user is not None:
+                return  f(current_user, *args, **kwargs)
+            else:
+                return jsonify({
+                    'message' : 'Api key is invalid !!'
+                }), 401
+             
+        return jsonify({
+            'message' : 'Bad Request'
+        }), 401
 
     return decorated
 

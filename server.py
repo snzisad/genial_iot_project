@@ -470,11 +470,11 @@ def delete_room(*_):
 
 
 @app.route('/api/room_ranking', methods=["GET"])
-# @api_key_required
+@verify_request
 def room_ranking(*_):
     retrieveData()
     rooms = list(db.rooms.find({}, sort = [('_id', 1)]))
-    selected_room_pos = []
+    room_points = {}
     
     for i, room in enumerate(rooms):
         sensors = list(db.room_sensor.find({"room_id": room["_id"]}, {'_id': 0, 'sensor_id': 1}, sort = [("_id", -1)]))
@@ -482,28 +482,28 @@ def room_ranking(*_):
 
         comfort_pass_num = 0
 
-        if len(sensors)>=3:
-            for sensor in sensors:
-                sensor_id = sensor["sensor_id"]
-                sensor_info = db.sensors.find_one({"_id": sensor_id})
-                sensor_data = db.sensor_data.find_one({"room_id": room["_id"], "sensor_id": sensor_id, "is_latest": True})            
-                
-                value = sensor_data["value"]
-                sensor_info.update({'value': value})
+        for sensor in sensors:
+            sensor_id = sensor["sensor_id"]
+            sensor_info = db.sensors.find_one({"_id": sensor_id})
+            sensor_data = db.sensor_data.find_one({"room_id": room["_id"], "sensor_id": sensor_id, "is_latest": True})            
+            
+            value = sensor_data["value"]
+            sensor_info.update({'value': value})
 
-                if sensor_id == 0 and value>=18 and value <= 23:
-                    comfort_pass_num = comfort_pass_num+1
-                elif sensor_id == 1 and value<300:
-                    comfort_pass_num = comfort_pass_num+1
-                elif sensor_id == 2 and value>=100 and value <= 2000:
-                    comfort_pass_num = comfort_pass_num+1
+            if sensor_id == 0 and value>=18 and value <= 23:
+                comfort_pass_num = comfort_pass_num+1
+            elif sensor_id == 1 and value<300:
+                comfort_pass_num = comfort_pass_num+1
+            elif sensor_id == 2 and value>=100 and value <= 350:
+                comfort_pass_num = comfort_pass_num+1
 
-                room_sensor_data.append(sensor_info)
+            room_sensor_data.append(sensor_info)
 
-            if comfort_pass_num>=3:
-                selected_room_pos.append(i)
+        room_points.update({i: 0.333*comfort_pass_num})
+        room.update({'sensor': room_sensor_data})
 
-            room.update({'sensor': room_sensor_data})
+    room_points = {k: v for k, v in sorted(room_points.items(), key=lambda item: item[1],  reverse=True)}
+    selected_room_pos = room_points.keys()
 
     return jsonify({
         'status': True,
@@ -513,7 +513,7 @@ def room_ranking(*_):
 
 
 @app.route('/api/room_sensor_data', methods=["GET"])
-# @api_key_required
+@verify_request
 def room_sensor_data(*_):
     retrieveData()
     rooms = list(db.rooms.find({}, sort = [('_id', 1)]))
@@ -546,7 +546,7 @@ def room_sensor_data(*_):
 
 
 @app.route('/api/room_wise_data', methods=["GET"])
-# @api_key_required
+@verify_request
 def room_wise_data(*_):
     retrieveData()
     if 'room_id' not in request.args:
@@ -593,7 +593,7 @@ def room_wise_data(*_):
 
 
 @app.route('/api/sensor_wise_data', methods=["GET"])
-# @api_key_required
+@verify_request
 def sensor_wise_data(*_):
     retrieveData()
     if 'sensor_id' not in request.args:
@@ -640,7 +640,7 @@ def sensor_wise_data(*_):
 
 
 @app.route('/api/date_wise_data', methods=["GET"])
-# @api_key_required
+@verify_request
 def date_wise_data(*_):
     retrieveData()
     if 'from_date' not in request.args:
