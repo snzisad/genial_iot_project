@@ -507,6 +507,7 @@ def room_ranking(*_):
 
     return jsonify({
         'status': True,
+        "points": room_points,
         'data': [rooms[index] for index in selected_room_pos],
     }), 200
 
@@ -691,4 +692,4 @@ def date_wise_data(*_):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="127.0.0.1", port=8000)
+    app.run(debug=True, host="0.0.0.0", port=8000)
