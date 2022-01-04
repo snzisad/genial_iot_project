@@ -246,7 +246,7 @@ def room_list(*_):
 
 
 @app.route('/api/room_sensor_list', methods=["GET"])
-@api_key_required
+@verify_request
 def room_sensor_list(*_):
     pipeline = [
         {
@@ -538,7 +538,8 @@ def room_sensor_data(*_):
             room_sensor_data.append(sensor_info)
 
         room.update({'sensor': room_sensor_data})
-
+    
+    print(rooms)
     return jsonify({
         'status': True,
         'data': rooms,
@@ -690,4 +691,4 @@ def date_wise_data(*_):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=8000)
+    app.run(debug=True, host="127.0.0.1", port=8000)

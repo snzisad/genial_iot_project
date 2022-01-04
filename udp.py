@@ -34,11 +34,11 @@ def retrieveData():
         print(e)
 
 
-# def saveData(output, date):
-def saveData(output):
+def saveData(output, date):
+# def saveData(output):
 #     output = ['21.34', '55.00', '380.00']
-    print(output)
-    date = datetime.today().strftime("%d-%m-%Y")
+    # print(output)
+    # date = datetime.today().strftime("%d-%m-%Y")
     time = datetime.today().strftime("%H:%M")
 
     all_room_sensors = db.room_sensor.find({}, sort = [('room_id', 1), ('sensor_id', 1)])
@@ -68,12 +68,10 @@ def generateDummyData():
     output = [23.34, 56.0, 328.00]
     db.sensor_data.delete_many({})
 
-    for x in range(100):
+    for x in range(10):
         value = gauss(0, 1)
         date =  base - timedelta(days=x)
         saveData([output[0]+value, output[1]+value, output[2]+value], date.strftime("%d-%m-%Y"))
 
-
-
 # saveData(None)
-# generateDummyData()
+generateDummyData()

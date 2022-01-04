@@ -96,10 +96,22 @@ def verify_request(f):
             if not token:
                 return jsonify({'message' : 'Bad Request'}), 401
 
+            # verify guest
             if token == x_access_token:
                 return  f(*args, **kwargs)
 
-            else:
+            #verify admin
+            try:
+                # decoding the payload to fetch the stored details
+                data = jwt.decode(token, secret_key)
+                current_user = db.user.find_one({"_id": data['public_id']})
+
+                # returns the current logged in users contex to the routes
+                return  f(current_user, *args, **kwargs)
+
+            except Exception as e:
+                print(e)
+
                 return jsonify({
                     'message' : 'Token is invalid !!'
                 }), 401
