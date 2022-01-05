@@ -412,7 +412,8 @@ def update_room(*_):
     db.rooms.update_one({'_id': id}, {'$set':{'name': name}})
 
     db.room_sensor.delete_many({'room_id': id}) #delete room information from room sensor
-    db.sensor_data.delete_many({'room_id': id}) #delete all previous data of this room
+    # db.sensor_data.delete_many({'room_id': id}) #delete all previous data of this room
+    # db.sensor_data.remove( { 'room_id': id, 'sensor_id' : { '$nin': sensor_ids } } )
 
     room_sensor_data = []
     for sensor_id in sensor_ids:
@@ -498,10 +499,11 @@ def room_ranking(*_):
                 comfort_pass_num = comfort_pass_num+1
 
             room_sensor_data.append(sensor_info)
-
-        room_points.update({i: 0.333*comfort_pass_num})
+        
+        points = 0.333*comfort_pass_num
+        room_points.update({i: points})
         room.update({'sensor': room_sensor_data})
-        room.update({'points': 0.333*comfort_pass_num*100})
+        room.update({'points': points*100})
 
     room_points = {k: v for k, v in sorted(room_points.items(), key=lambda item: item[1],  reverse=True)}
     selected_room_pos = room_points.keys()
@@ -540,7 +542,6 @@ def room_sensor_data(*_):
 
         room.update({'sensor': room_sensor_data})
     
-    print(rooms)
     return jsonify({
         'status': True,
         'data': rooms,
